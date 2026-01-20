@@ -1,3 +1,6 @@
+#define STB_IMAGE_IMPLEMENTATION;
+#include <stb_image.h>
+
 #define GLM_FORCE_RADIANS
 //#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm.hpp>
@@ -292,7 +295,7 @@ private:
 			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
 				uniformBuffers[i], uniformBuffersMemory[i]);
 
-			vkMapMemory(device, nullptr, 0, bufferSize, 0, &uniformBuffersMapped[i]);
+			vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
 
 		}
 	}

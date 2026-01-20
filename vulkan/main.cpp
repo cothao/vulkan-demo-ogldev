@@ -1,3 +1,6 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #define GLM_FORCE_RADIANS
 //#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm.hpp>

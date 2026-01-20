@@ -6,5 +6,5 @@ set LIB=C:\Users\colli\source\repos\vulkan\Libraries\glfw-3.4.bin.WIN64\lib-vc20
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 :: Append your includes to the INCLUDE environment variable
-set INCLUDE=%MY_INCLUDES%;%INCLUDE%;C:\Users\colli\source\repos\vulkan\Libraries\glfw-3.4.bin.WIN64/include;C:\VulkanSDK\1.4.335.0\Include
+set INCLUDE=%MY_INCLUDES%;%INCLUDE%;C:\Users\colli\source\repos\vulkan\Libraries\glfw-3.4.bin.WIN64/include;C:\VulkanSDK\1.4.335.0\Include;C:\Users\colli\source\repos\vulkan\Libraries\stb_master
 
