@@ -57,6 +57,13 @@ struct UniformBufferObject
 	 glm::mat4 proj;
 };
 
+struct Particle
+{
+	glm::vec2 position;
+	glm::vec2 velocity;
+	glm::vec4 color;
+};
+
 struct Vertex
 {
 	glm::vec3 pos;
@@ -224,6 +231,8 @@ private:
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;
+	std::vector<VkBuffer> shaderStorageBuffers;
+	std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
 
 	void initWindow()
 	{
@@ -258,6 +267,7 @@ private:
 		createTextureImageView();
 		createTextureSampler();
 		loadModel();
+		createShaderStorageBuffers();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
@@ -265,6 +275,19 @@ private:
 		createDescriptorSets();
 		createCommandBuffers();
 		createSyncObjects();
+	}
+
+	void createShaderStorageBuffers()
+	{
+
+		VkDeviceSize bufferSize = sizeof(Particle);
+		shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		shaderStorageBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);	
+		}
 	}
 
 	void createColorResources()
@@ -774,6 +797,7 @@ private:
 			bufferInfo.buffer = uniformBuffers[i];
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(UniformBufferObject);
+			//bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1310,7 +1334,7 @@ private:
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_TRUE;
 		multisampling.rasterizationSamples = msaaSamples;
-		multisampling.minSampleShading = .2f;
+		multisampling.minSampleShading = 0.2f;
 		multisampling.pSampleMask = nullptr;
 		multisampling.alphaToCoverageEnable = VK_FALSE;
 		multisampling.alphaToOneEnable = VK_FALSE;
