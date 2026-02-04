@@ -27,7 +27,9 @@
 #include <map>
 #include <unordered_map>
 #include <array>
+#include <random>
 
+const uint32_t PARTICLE_COUNT = 30000;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const std::string MODEL_PATH = "models/Viking Room/Viking Room.obj";
@@ -201,6 +203,7 @@ private:
 	std::vector<VkImageView> swapChainImageViews;
 	VkRenderPass renderPass;
 	VkDescriptorSetLayout descriptorSetLayout;
+	VkDescriptorSetLayout computeDescriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -218,6 +221,7 @@ private:
 	std::vector<void*> uniformBuffersMapped;
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
+	std::vector<VkDescriptorSet> computeDescriptorSets;
 	bool framebufferResized = false;
 	uint32_t mipLevels;
 	VkImage textureImage;
@@ -277,16 +281,116 @@ private:
 		createSyncObjects();
 	}
 
+	void createComputeDescriptorSets()
+	{
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			VkDescriptorBufferInfo uniformBufferInfo{};
+			uniformBufferInfo.buffer = uniformBuffers[i];
+			uniformBufferInfo.offset = 0;
+			uniformBufferInfo.range = sizeof(UniformBufferObject);
+
+			std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+
+			VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+			storageBufferInfoLastFrame.buffer = shaderStorageBuffers[(i - 1) % MAX_FRAMES_IN_FLIGHT];
+			storageBufferInfoLastFrame.offset = 0;
+			storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = computeDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
+
+			VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
+			storageBufferInfoCurrentFrame.buffer = shaderStorageBuffers[i];
+			storageBufferInfoCurrentFrame.offset = 0;
+			storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+			
+			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[2].dstSet = computeDescriptorSets[i];
+			descriptorWrites[2].dstBinding = 2;
+			descriptorWrites[2].dstArrayElement = 0;
+			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			descriptorWrites[2].descriptorCount = 1;
+			descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
+
+			vkUpdateDescriptorSets(device, 3, descriptorWrites.data(), 0, nullptr);
+		}
+	}
+
+	void createComputeDescriptorSetLayout()
+	{
+		std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+		layoutBindings[0].binding = 0;
+		layoutBindings[0].descriptorCount = 1;
+		layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		layoutBindings[0].pImmutableSamplers = nullptr;
+		layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		layoutBindings[1].binding = 1;
+		layoutBindings[1].descriptorCount = 1;
+		layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		layoutBindings[1].pImmutableSamplers = nullptr;
+		layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		layoutBindings[2].binding = 2;
+		layoutBindings[2].descriptorCount = 1;
+		layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		layoutBindings[2].pImmutableSamplers = nullptr;
+		layoutBindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 3;
+		layoutInfo.pBindings = layoutBindings.data();
+
+		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create compute descriptor set layout!");
+		}
+	}
+
 	void createShaderStorageBuffers()
 	{
 
-		VkDeviceSize bufferSize = sizeof(Particle);
+		VkDeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
 		shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 		shaderStorageBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+		std::default_random_engine rndEngine((unsigned)time(nullptr));
+		std::uniform_real_distribution<float> rndDist(0.0f, 1.f);
+		
+		std::vector<Particle> particles(PARTICLE_COUNT);
+
+		for (auto & particle : particles)
+		{
+			float r = 0.25f * sqrt(rndDist(rndEngine));
+			float theta = rndDist(rndEngine) * 2 * 3.141592;
+			float x = r * cos(theta) * HEIGHT/WIDTH;
+			float y = r * sin(theta);
+			particle.position = glm::vec2(x, y);
+			particle.velocity = glm::normalize(glm::vec2(x, y)) * 0.00025f;
+			particle.color = glm::vec4(rndDist(rndEngine),rndDist(rndEngine),rndDist(rndEngine), 1.f);
+		}
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void * data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, particles.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);	
+		
+			copyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
 		}
 	}
 
@@ -797,7 +901,6 @@ private:
 			bufferInfo.buffer = uniformBuffers[i];
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(UniformBufferObject);
-			//bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1254,9 +1357,17 @@ private:
 
 		auto vertShaderCode = readFile("shaders/vert.spv");
 		auto fragShaderCode = readFile("shaders/frag.spv");
+		auto compShaderCode = readFile("shaders/comp.spv");
 
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+		VkShaderModule compShaderModule = createShaderModule(compShaderCode);
+
+		VkPipelineShaderStageCreateInfo compShaderStageInfo{};
+		compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		compShaderStageInfo.module = compShaderModule;
+		compShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
