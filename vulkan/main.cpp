@@ -284,25 +284,25 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
-		createDescriptorSetLayout();
+		//createDescriptorSetLayout();
 		createComputeDescriptorSetLayout();
 		createGraphicsPipeline();
 		createComputePipeline();
 		createCommandPool();
-		createColorResources();
-		createDepthResources();
+		//createColorResources();
+		//createDepthResources();
 		createFramebuffers();
-		createTextureImage();
-		createTextureImageView();
-		createTextureSampler();
-		loadModel();
+		//createTextureImage();
+		//createTextureImageView();
+		//createTextureSampler();
+		//loadModel();
 		createShaderStorageBuffers();
-		createVertexBuffer();
-		createIndexBuffer();
+		//createVertexBuffer();
+		//createIndexBuffer();
 		createUniformBuffers();
 		createDescriptorPool();
 		createComputeDescriptorPool();
-		createDescriptorSets();
+		//createDescriptorSets();
 		createComputeDescriptorSets();
 		createCommandBuffers();
 		createComputeCommandBuffers();
@@ -335,7 +335,7 @@ private:
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-		std::cout << "Began commandbuffer\n";
+
 		vkCmdBindDescriptorSets(
 			commandBuffer, 
 			VK_PIPELINE_BIND_POINT_COMPUTE, 
@@ -514,8 +514,8 @@ private:
 		{
 			float r = 0.25f * sqrt(rndDist(rndEngine));
 			float theta = rndDist(rndEngine) * 2 * 3.141592;
-			float x = r * cos(theta) * HEIGHT/WIDTH;
-			float y = r * sin(theta);
+			float x = 2. * r * cos(theta) * HEIGHT/WIDTH;
+			float y = 2. * r * sin(theta);
 			particle.position = glm::vec2(x, y);
 			particle.velocity = glm::normalize(glm::vec2(x, y)) * 0.00025f;
 			particle.color = glm::vec4(rndDist(rndEngine),rndDist(rndEngine),rndDist(rndEngine), 1.f);
@@ -536,7 +536,9 @@ private:
 		
 			copyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
 		}
-		std::cout << "Created SSBO!\n";
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
 	void createColorResources()
@@ -1339,7 +1341,7 @@ private:
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &shaderStorageBuffers[currentFrame], offsets);
 	//	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+	//	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 		vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
@@ -1394,7 +1396,8 @@ private:
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+			//std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+			std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
 			
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1474,7 +1477,8 @@ private:
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		
-		std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
+		//std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
+		std::array<VkAttachmentDescription, 3> attachments = {colorAttachment};
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1536,9 +1540,13 @@ private:
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		//vertexInputInfo.vertexBindingDescriptionCount = 0;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		//vertexInputInfo.vertexAttributeDescriptionCount = 0;
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		//vertexInputInfo.pVertexBindingDescriptions = nullptr;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		//vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -1621,8 +1629,9 @@ private:
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+		pipelineLayoutInfo.setLayoutCount = 0;
+		pipelineLayoutInfo.pSetLayouts = nullptr;
+		//pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 			
