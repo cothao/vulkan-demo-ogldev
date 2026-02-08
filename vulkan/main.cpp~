@@ -29,13 +29,15 @@
 #include <array>
 #include <random>
 
-const uint32_t PARTICLE_COUNT = 4096;
+const uint32_t PARTICLE_COUNT = 8192;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const std::string MODEL_PATH = "models/Viking Room/Viking Room.obj";
 const std::string TEXTURE_PATH = "models/Viking Room/Material_3.png";
 const int MAX_FRAMES_IN_FLIGHT = 2;
 uint32_t currentFrame = 0;
+float lastFrameTime = 0.f;
+double lastTime = 0.f;
 const std::vector<const char*> deviceExtensions =
 {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -54,9 +56,12 @@ const std::vector<const char*> validationLayers =
 
 struct UniformBufferObject
 {
+/*	 
 	 glm::mat4 model;
 	 glm::mat4 view;
 	 glm::mat4 proj;
+*/
+	float deltaTime;
 };
 
 struct Particle
@@ -80,7 +85,18 @@ struct Particle
 		attributeDescriptions[1].offset = offsetof(Particle, color);
 
 		return attributeDescriptions;
-	}
+	}    
+	
+	static VkVertexInputBindingDescription getBindingDesciption()
+    	{
+    	VkVertexInputBindingDescription bindingDescription{};
+    
+    	bindingDescription.binding = 0;
+    	bindingDescription.stride = sizeof(Particle);
+    	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    
+    	return bindingDescription;
+    	}
 };
 
 struct Vertex
@@ -89,8 +105,8 @@ struct Vertex
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -210,7 +226,7 @@ private:
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkDevice device;
-	VkQueue graphicsQueue;
+	VkQueue graphicsAndComputeQueue;
 	VkQueue presentQueue;
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
@@ -284,25 +300,25 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
-		createDescriptorSetLayout();
+		//createDescriptorSetLayout();
 		createComputeDescriptorSetLayout();
 		createGraphicsPipeline();
 		createComputePipeline();
 		createCommandPool();
-		createColorResources();
-		createDepthResources();
+		//createColorResources();
+		//createDepthResources();
 		createFramebuffers();
-		createTextureImage();
-		createTextureImageView();
-		createTextureSampler();
-		loadModel();
+		//createTextureImage();
+		//createTextureImageView();
+		//createTextureSampler();
+		//loadModel();
 		createShaderStorageBuffers();
-		createVertexBuffer();
-		createIndexBuffer();
+		//createVertexBuffer();
+		//createIndexBuffer();
 		createUniformBuffers();
 		createDescriptorPool();
 		createComputeDescriptorPool();
-		createDescriptorSets();
+	//	createDescriptorSets();
 		createComputeDescriptorSets();
 		createCommandBuffers();
 		createComputeCommandBuffers();
@@ -335,7 +351,7 @@ private:
 			throw std::runtime_error("failed to begin recording command buffer!");
 		}
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-		std::cout << "Began commandbuffer\n";
+
 		vkCmdBindDescriptorSets(
 			commandBuffer, 
 			VK_PIPELINE_BIND_POINT_COMPUTE, 
@@ -514,8 +530,8 @@ private:
 		{
 			float r = 0.25f * sqrt(rndDist(rndEngine));
 			float theta = rndDist(rndEngine) * 2 * 3.141592;
-			float x = r * cos(theta) * HEIGHT/WIDTH;
-			float y = r * sin(theta);
+			float x = 2. * r * cos(theta) * HEIGHT/WIDTH;
+			float y = 2. * r * sin(theta);
 			particle.position = glm::vec2(x, y);
 			particle.velocity = glm::normalize(glm::vec2(x, y)) * 0.00025f;
 			particle.color = glm::vec4(rndDist(rndEngine),rndDist(rndEngine),rndDist(rndEngine), 1.f);
@@ -536,7 +552,9 @@ private:
 		
 			copyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
 		}
-		std::cout << "Created SSBO!\n";
+
+		vkDestroyBuffer(device, stagingBuffer, nullptr);
+		vkFreeMemory(device, stagingBufferMemory, nullptr);
 	}
 
 	void createColorResources()
@@ -843,8 +861,8 @@ private:
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 
-		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(graphicsQueue);
+		vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsAndComputeQueue);
 
 		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 	}
@@ -1251,13 +1269,12 @@ private:
 
 	void createSyncObjects()
 	{
-		std::cout << "creating sync objects...\n";
 		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-		std::cout << "sync objects resized\n";
+
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -1337,9 +1354,9 @@ private:
 		
 	//	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &shaderStorageBuffers[currentFrame], offsets);
-		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+	//	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+	//	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 		vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
@@ -1394,7 +1411,8 @@ private:
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+			//std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+			std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
 			
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1423,7 +1441,8 @@ private:
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		//colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentDescription colorAttachmentResolve{};
 		colorAttachmentResolve.format = swapChainImageFormat;
@@ -1462,8 +1481,8 @@ private:
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		subpass.pResolveAttachments = &colorAttachmentResolveRef;
+		//subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		//subpass.pResolveAttachments = &colorAttachmentResolveRef;
 	
 
 		VkSubpassDependency dependency{};
@@ -1474,7 +1493,8 @@ private:
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		
-		std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
+		//std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
+		std::array<VkAttachmentDescription, 1> attachments = {colorAttachment};
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1530,15 +1550,22 @@ private:
 		fragShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
+/*
 		auto bindingDescription = Vertex::getBindingDesciption();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+*/		
+		auto bindingDescription = Particle::getBindingDesciption();
+		auto attributeDescriptions = Particle::getAttributeDescriptions();
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		//vertexInputInfo.vertexBindingDescriptionCount = 0;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		//vertexInputInfo.vertexAttributeDescriptionCount = 0;
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		//vertexInputInfo.pVertexBindingDescriptions = nullptr;
 		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		//vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -1621,8 +1648,9 @@ private:
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+		pipelineLayoutInfo.setLayoutCount = 0;
+		pipelineLayoutInfo.pSetLayouts = nullptr;
+		//pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 		pipelineLayoutInfo.pPushConstantRanges = nullptr;
 			
@@ -1925,7 +1953,7 @@ private:
 			throw std::runtime_error("failed to create logical device!");
 		}
 
-		vkGetDeviceQueue(device, indices.graphicsAndComputeFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(device, indices.graphicsAndComputeFamily.value(), 0, &graphicsAndComputeQueue);
 		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 	}
 
@@ -2000,7 +2028,8 @@ private:
 		if (candidates.rbegin()->first > 0)
 		{
 			physicalDevice = candidates.rbegin()->second;
-			msaaSamples = getMaxUsableSampleCount();
+			//msaaSamples = getMaxUsableSampleCount();
+			msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 		}
 		else
 		{
@@ -2142,6 +2171,9 @@ private:
 		{
 			glfwPollEvents();
 			drawFrame();
+			double currentTime = glfwGetTime();
+			lastFrameTime = (currentTime - lastTime) * 1000.f;
+			lastTime = currentTime;
 		}
 
 		vkDeviceWaitIdle(device);
@@ -2168,7 +2200,7 @@ private:
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
 
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit compute command buffer!");
 		};
@@ -2200,6 +2232,8 @@ private:
 
 		VkSemaphore waitSemaphores[] = { computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.waitSemaphoreCount = 2;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
@@ -2208,9 +2242,9 @@ private:
 
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame]};
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
+		submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
 
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
@@ -2218,7 +2252,7 @@ private:
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
+		presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
 
 		VkSwapchainKHR swapChains[] = { swapChain };
 		presentInfo.swapchainCount = 1;
@@ -2250,12 +2284,16 @@ private:
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-		ubo.model = glm::mat4(1.);
+/*		
+ 		ubo.model = glm::mat4(1.);
 	//	ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.f);
 
 		ubo.proj[1][1] *= -1;
+*/
+
+		ubo.deltaTime = lastFrameTime * 2.f;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 
