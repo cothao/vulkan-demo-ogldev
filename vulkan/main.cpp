@@ -80,7 +80,18 @@ struct Particle
 		attributeDescriptions[1].offset = offsetof(Particle, color);
 
 		return attributeDescriptions;
-	}
+	}    
+	
+	static VkVertexInputBindingDescription getBindingDesciption()
+    	{
+    	VkVertexInputBindingDescription bindingDescription{};
+    
+    	bindingDescription.binding = 0;
+    	bindingDescription.stride = sizeof(Particle);
+    	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    
+    	return bindingDescription;
+    	}
 };
 
 struct Vertex
@@ -89,8 +100,8 @@ struct Vertex
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
@@ -210,7 +221,7 @@ private:
 	VkDebugUtilsMessengerEXT debugMessenger;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkDevice device;
-	VkQueue graphicsQueue;
+	VkQueue graphicsAndComputeQueue;
 	VkQueue presentQueue;
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
@@ -845,8 +856,8 @@ private:
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &commandBuffer;
 
-		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(graphicsQueue);
+		vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsAndComputeQueue);
 
 		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 	}
@@ -1253,13 +1264,12 @@ private:
 
 	void createSyncObjects()
 	{
-		std::cout << "creating sync objects...\n";
 		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-		std::cout << "sync objects resized\n";
+
 		VkSemaphoreCreateInfo semaphoreInfo{};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -1426,7 +1436,8 @@ private:
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		//colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentDescription colorAttachmentResolve{};
 		colorAttachmentResolve.format = swapChainImageFormat;
@@ -1465,8 +1476,8 @@ private:
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		subpass.pResolveAttachments = &colorAttachmentResolveRef;
+		//subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		//subpass.pResolveAttachments = &colorAttachmentResolveRef;
 	
 
 		VkSubpassDependency dependency{};
@@ -1478,7 +1489,7 @@ private:
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		
 		//std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
-		std::array<VkAttachmentDescription, 3> attachments = {colorAttachment};
+		std::array<VkAttachmentDescription, 1> attachments = {colorAttachment};
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -1534,9 +1545,12 @@ private:
 		fragShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
+/*
 		auto bindingDescription = Vertex::getBindingDesciption();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+*/		
+		auto bindingDescription = Particle::getBindingDesciption();
+		auto attributeDescriptions = Particle::getAttributeDescriptions();
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1934,7 +1948,7 @@ private:
 			throw std::runtime_error("failed to create logical device!");
 		}
 
-		vkGetDeviceQueue(device, indices.graphicsAndComputeFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(device, indices.graphicsAndComputeFamily.value(), 0, &graphicsAndComputeQueue);
 		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 	}
 
@@ -2009,7 +2023,8 @@ private:
 		if (candidates.rbegin()->first > 0)
 		{
 			physicalDevice = candidates.rbegin()->second;
-			msaaSamples = getMaxUsableSampleCount();
+			//msaaSamples = getMaxUsableSampleCount();
+			msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 		}
 		else
 		{
@@ -2177,7 +2192,7 @@ private:
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
 
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit compute command buffer!");
 		};
@@ -2209,6 +2224,8 @@ private:
 
 		VkSemaphore waitSemaphores[] = { computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.waitSemaphoreCount = 2;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
@@ -2217,9 +2234,9 @@ private:
 
 		VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame]};
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores;
+		submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
 
-		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
+		if (vkQueueSubmit(graphicsAndComputeQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
@@ -2227,7 +2244,7 @@ private:
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores;
+		presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
 
 		VkSwapchainKHR swapChains[] = { swapChain };
 		presentInfo.swapchainCount = 1;
