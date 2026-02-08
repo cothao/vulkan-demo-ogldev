@@ -13,3 +13,6 @@
 .vs/
 *.db
 *.VC.db
+*~
+*.swp
+*.swo
