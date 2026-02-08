@@ -29,13 +29,15 @@
 #include <array>
 #include <random>
 
-const uint32_t PARTICLE_COUNT = 4096;
+const uint32_t PARTICLE_COUNT = 8192;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const std::string MODEL_PATH = "models/Viking Room/Viking Room.obj";
 const std::string TEXTURE_PATH = "models/Viking Room/Material_3.png";
 const int MAX_FRAMES_IN_FLIGHT = 2;
 uint32_t currentFrame = 0;
+float lastFrameTime = 0.f;
+double lastTime = 0.f;
 const std::vector<const char*> deviceExtensions =
 {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -54,9 +56,12 @@ const std::vector<const char*> validationLayers =
 
 struct UniformBufferObject
 {
+/*	 
 	 glm::mat4 model;
 	 glm::mat4 view;
 	 glm::mat4 proj;
+*/
+	float deltaTime;
 };
 
 struct Particle
@@ -92,7 +97,6 @@ struct Particle
     
     	return bindingDescription;
     	}
-
 };
 
 struct Vertex
@@ -314,7 +318,7 @@ private:
 		createUniformBuffers();
 		createDescriptorPool();
 		createComputeDescriptorPool();
-		//createDescriptorSets();
+	//	createDescriptorSets();
 		createComputeDescriptorSets();
 		createCommandBuffers();
 		createComputeCommandBuffers();
@@ -2167,6 +2171,9 @@ private:
 		{
 			glfwPollEvents();
 			drawFrame();
+			double currentTime = glfwGetTime();
+			lastFrameTime = (currentTime - lastTime) * 1000.f;
+			lastTime = currentTime;
 		}
 
 		vkDeviceWaitIdle(device);
@@ -2277,12 +2284,16 @@ private:
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-		ubo.model = glm::mat4(1.);
+/*		
+ 		ubo.model = glm::mat4(1.);
 	//	ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 0.f, 1.f));
 		ubo.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.f);
 
 		ubo.proj[1][1] *= -1;
+*/
+
+		ubo.deltaTime = lastFrameTime * 2.f;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 

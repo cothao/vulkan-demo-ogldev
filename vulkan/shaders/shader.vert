@@ -31,6 +31,7 @@ void main() {
 
 	gl_PointSize = 14.0;
 	gl_Position = vec4(inPosition.xy, 1., 1.0);
+	//fragColor = inColor.rgb;
 	fragColor = inColor.rgb;
 
 }

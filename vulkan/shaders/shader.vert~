@@ -20,7 +20,7 @@ layout(location = 1) out vec2 fragTexCoord;
 layout (location = 0) in vec2 inPosition;
 layout (location = 0) out vec3 fragColor;
 layout (location = 1) in vec4 inColor;
-layout (location = 2) in vec2 inTest;
+//layout (location = 2) in vec2 inTest;
 
 void main() {
 	/*
@@ -29,8 +29,9 @@ void main() {
     fragTexCoord = inTexCoord;
     */
 
-	gl_PointSize = 14.0;
-	gl_Position = vec4(inPosition.xy, 1., 1.0);
-	fragColor = inColor.rgb;
+	gl_PointSize = 500.0;
+	gl_Position = vec4(vec2(.5), 1., 1.0);
+	//fragColor = inColor.rgb;
+	fragColor = vec3(1.);
 
 }
