@@ -16,4 +16,7 @@
 *~
 *.swp
 *.swo
+<<<<<<< HEAD
 *.swm
+=======
+>>>>>>> fix/compute-shader-render
