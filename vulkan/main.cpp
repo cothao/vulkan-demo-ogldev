@@ -325,30 +325,30 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
-//		createDescriptorSetLayout();
-	//	createModelDescriptorSetLayout();
+		//createDescriptorSetLayout();
+		//createModelDescriptorSetLayout();
 		createComputeDescriptorSetLayout();
 		createGraphicsPipeline();
-	//	createModelGraphicsPipeline();
+		//createModelGraphicsPipeline();
 		createComputePipeline();
 		createCommandPool();
 		createColorResources();
 		createDepthResources();
 		createFramebuffers();
-	//	createTextureImage();
-	//	createTextureImageView();
-	//	createTextureSampler();
-//		loadModel();
+		//createTextureImage();
+		//createTextureImageView();
+		//createTextureSampler();
+		//loadModel();
 		createShaderStorageBuffers();
-	//	createVertexBuffer();
-	//	createIndexBuffer();
+		//createVertexBuffer();
+		//createIndexBuffer();
 		createUniformBuffers();
-	//	createUniformBuffersModel();
+		//createUniformBuffersModel();
 		createDescriptorPool();
-	//	createModelDescriptorPool();
+		//createModelDescriptorPool();
 		createComputeDescriptorPool();
-	//	createDescriptorSets();
-	//	createModelDescriptorSets();
+		//createDescriptorSets();
+		//createModelDescriptorSets();
 		createComputeDescriptorSets();
 		createCommandBuffers();
 		createComputeCommandBuffers();
@@ -1063,7 +1063,7 @@ private:
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 		
 		if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
 		{
@@ -1476,7 +1476,6 @@ private:
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-		//vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, modelGraphicsPipeline);
 
 		VkBuffer vertexBuffers[] = { vertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
@@ -1495,14 +1494,22 @@ private:
 		scissor.extent = swapChainExtent;
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 		
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &shaderStorageBuffers[currentFrame], offsets);
-		//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-		//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 		vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+/*
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, modelGraphicsPipeline);
+
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+		vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, modelPipelineLayout, 0, 1, &modelDescriptorSets[currentFrame], 0, nullptr);
+
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+*/
 		vkCmdEndRenderPass(commandBuffer);
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
@@ -1554,8 +1561,8 @@ private:
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			//std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
-			std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
+			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
+		//	std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
 			
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1584,7 +1591,7 @@ private:
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription colorAttachmentResolve{};
 		colorAttachmentResolve.format = swapChainImageFormat;
@@ -1618,13 +1625,12 @@ private:
 		colorAttachmentResolveRef.attachment = 2;
 		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
-		//subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		//subpass.pResolveAttachments = &colorAttachmentResolveRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		subpass.pResolveAttachments = &colorAttachmentResolveRef;
 	
 		VkSubpassDependency dependency{};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -1634,8 +1640,8 @@ private:
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		
-		//std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
-		std::array<VkAttachmentDescription, 1> attachments = {colorAttachment};
+		std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, colorAttachmentResolve};
+		//std::array<VkAttachmentDescription, 1> attachments = {colorAttachment};
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -2571,17 +2577,17 @@ private:
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-	//	UniformBufferObjectModel ubom{};
-		
- 	//	ubom.model = glm::mat4(1.);
+		UniformBufferObjectModel ubom{};
+	/*	
+ 		ubom.model = glm::mat4(1.);
 	//	ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
-	//	ubom.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 0.f, 1.f));
-	//	ubom.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.f);
+		ubom.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 0.f, 1.f));
+		ubom.proj = glm::perspective(glm::radians(45.f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 100.f);
 
-	//	ubom.proj[1][1] *= -1;
+		ubom.proj[1][1] *= -1;
 
-	//	memcpy(modelUniformBuffersMapped[currentImage], &ubom, sizeof(ubom));
-
+		memcpy(modelUniformBuffersMapped[currentImage], &ubom, sizeof(ubom));
+*/
 		ubo.deltaTime = lastFrameTime * 2.f;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
