@@ -325,30 +325,30 @@ private:
 		createSwapChain();
 		createImageViews();
 		createRenderPass();
-		//createDescriptorSetLayout();
-		//createModelDescriptorSetLayout();
+		createDescriptorSetLayout();
+		createModelDescriptorSetLayout();
 		createComputeDescriptorSetLayout();
 		createGraphicsPipeline();
-		//createModelGraphicsPipeline();
+		createModelGraphicsPipeline();
 		createComputePipeline();
 		createCommandPool();
 		createColorResources();
 		createDepthResources();
 		createFramebuffers();
-		//createTextureImage();
-		//createTextureImageView();
-		//createTextureSampler();
-		//loadModel();
+		createTextureImage();
+		createTextureImageView();
+		createTextureSampler();
+		loadModel();
 		createShaderStorageBuffers();
-		//createVertexBuffer();
-		//createIndexBuffer();
+		createVertexBuffer();
+		createIndexBuffer();
 		createUniformBuffers();
-		//createUniformBuffersModel();
+		createUniformBuffersModel();
 		createDescriptorPool();
-		//createModelDescriptorPool();
+		createModelDescriptorPool();
 		createComputeDescriptorPool();
-		//createDescriptorSets();
-		//createModelDescriptorSets();
+		createDescriptorSets();
+		createModelDescriptorSets();
 		createComputeDescriptorSets();
 		createCommandBuffers();
 		createComputeCommandBuffers();
@@ -845,7 +845,7 @@ private:
 			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		}
+		}	
 		else {
 			throw std::invalid_argument("unsuported layout transition!");
 		}
@@ -1027,7 +1027,6 @@ private:
 
 		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
 		copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-		//transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
 
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
@@ -1499,7 +1498,7 @@ private:
 		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 		vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
-/*
+
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, modelGraphicsPipeline);
 
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -1509,7 +1508,7 @@ private:
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, modelPipelineLayout, 0, 1, &modelDescriptorSets[currentFrame], 0, nullptr);
 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-*/
+
 		vkCmdEndRenderPass(commandBuffer);
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
@@ -1556,13 +1555,16 @@ private:
 
 	void createFramebuffers()
 	{
-
 		swapChainFramebuffers.resize(swapChainImageViews.size());
 
 		for (size_t i = 0; i < swapChainImageViews.size(); i++)
 		{
-			std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
-		//	std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
+			std::array<VkImageView, 3> attachments = { 
+				colorImageView, 
+				depthImageView,
+				swapChainImageViews[i], 
+			};
+	//		std::array<VkImageView, 1> attachments = { swapChainImageViews[i] };
 			
 			VkFramebufferCreateInfo framebufferInfo{};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1592,6 +1594,7 @@ private:
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		//colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentDescription colorAttachmentResolve{};
 		colorAttachmentResolve.format = swapChainImageFormat;
@@ -2000,7 +2003,6 @@ private:
 
 	void createImageViews()
 	{
-
 		swapChainImageViews.resize(swapChainImages.size());
 
 		for (size_t i = 0; i < swapChainImages.size(); i++)
@@ -2488,6 +2490,29 @@ private:
 		vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
 
 		recordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+/* TODO: BARRIER
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = swapChainImages[];
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.layerCount = 1;
+
+		vkCmdPipelineBarrier(
+			commandBuffer,
+	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+0,
+0, nullptr,
+0, nullptr,
+1, &barrier);
+
 
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &computeCommandBuffers[currentFrame];
@@ -2578,7 +2603,7 @@ private:
 
 		UniformBufferObject ubo{};
 		UniformBufferObjectModel ubom{};
-	/*	
+		
  		ubom.model = glm::mat4(1.);
 	//	ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
 		ubom.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 0.f, 1.f));
@@ -2587,7 +2612,7 @@ private:
 		ubom.proj[1][1] *= -1;
 
 		memcpy(modelUniformBuffersMapped[currentImage], &ubom, sizeof(ubom));
-*/
+
 		ubo.deltaTime = lastFrameTime * 2.f;
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
